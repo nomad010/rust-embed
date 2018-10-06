@@ -7,18 +7,18 @@ extern crate syn;
 extern crate walkdir;
 
 use proc_macro::TokenStream;
-use syn::*;
 use quote::Tokens;
 use std::path::Path;
+use syn::*;
 use walkdir::WalkDir;
 
 #[cfg(debug_assertions)]
 fn generate_assets(ident: &syn::Ident, folder_path: String) -> quote::Tokens {
   let mut files = Vec::new();
   for entry in WalkDir::new(folder_path.clone())
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
+    .into_iter()
+    .filter_map(|e| e.ok())
+    .filter(|e| e.file_type().is_file())
   {
     let base = &folder_path.clone();
     let key = String::from(
@@ -27,7 +27,7 @@ fn generate_assets(ident: &syn::Ident, folder_path: String) -> quote::Tokens {
         .strip_prefix(base)
         .unwrap()
         .to_str()
-        .expect("Path does not have a string representation")
+        .expect("Path does not have a string representation"),
     );
     let key = if std::path::MAIN_SEPARATOR == '\\' { key.replace('\\', "/") } else { key };
     files.push(key);
@@ -94,7 +94,6 @@ fn generate_assets(ident: &syn::Ident, folder_path: String) -> quote::Tokens {
         #key
     };
     keys.push(key_tokens);
-
   }
   quote!{
       impl #ident {
@@ -149,7 +148,11 @@ fn impl_rust_embed(ast: &syn::DeriveInput) -> Tokens {
     }
   };
   if !Path::new(&folder_path).exists() {
-    panic!("#[derive(RustEmbed)] folder '{}' does not exist. cwd: '{}'", folder_path, std::env::current_dir().unwrap().to_str().unwrap());
+    panic!(
+      "#[derive(RustEmbed)] folder '{}' does not exist. cwd: '{}'",
+      folder_path,
+      std::env::current_dir().unwrap().to_str().unwrap()
+    );
   };
   generate_assets(ident, folder_path)
 }
