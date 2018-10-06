@@ -10,9 +10,29 @@ use proc_macro::TokenStream;
 use syn::*;
 use quote::Tokens;
 use std::path::Path;
+use walkdir::WalkDir;
 
 #[cfg(debug_assertions)]
 fn generate_assets(ident: &syn::Ident, folder_path: String) -> quote::Tokens {
+  let mut files = Vec::new();
+  for entry in WalkDir::new(folder_path.clone())
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+  {
+    let base = &folder_path.clone();
+    let key = String::from(
+      entry
+        .path()
+        .strip_prefix(base)
+        .unwrap()
+        .to_str()
+        .expect("Path does not have a string representation")
+    );
+    let key = if std::path::MAIN_SEPARATOR == '\\' { key.replace('\\', "/") } else { key };
+    files.push(key);
+  }
+
   quote!{
       impl #ident {
           pub fn get(file_path: &str) -> Option<Vec<u8>> {
@@ -37,14 +57,18 @@ fn generate_assets(ident: &syn::Ident, folder_path: String) -> quote::Tokens {
                   }
               }
           }
+
+          pub fn list<'a>() -> Vec<&'a str> {
+            #files.to_vec()
+          }
       }
   }
 }
 
 #[cfg(not(debug_assertions))]
 fn generate_assets(ident: &syn::Ident, folder_path: String) -> quote::Tokens {
-  use walkdir::WalkDir;
   let mut values = Vec::<Tokens>::new();
+  let mut keys = Vec::<Tokens>::new();
   for entry in WalkDir::new(folder_path.clone())
     .into_iter()
     .filter_map(|e| e.ok())
@@ -66,6 +90,11 @@ fn generate_assets(ident: &syn::Ident, folder_path: String) -> quote::Tokens {
       #key => Some(include_bytes!(#canonical_path_str).to_vec()),
     };
     values.push(value);
+    let key_tokens = quote!{
+        #key
+    };
+    keys.push(key_tokens);
+
   }
   quote!{
       impl #ident {
@@ -75,6 +104,11 @@ fn generate_assets(ident: &syn::Ident, folder_path: String) -> quote::Tokens {
                   _ => None,
               }
           }
+
+          pub fn list<'a>() -> Vec<&'a str> {
+              vec![#(#keys),*]
+          }
+
       }
   }
 }
